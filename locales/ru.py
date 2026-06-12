@@ -48,6 +48,7 @@ MESSAGES = {
     "house_delete_no": "❌ Отмена",
     "house_deleted": "✅ Дом и его история полностью удалены.",
     "house_delete_error": "Ошибка.",
+    "house_not_found": "Дом не найден или не принадлежит вам.",
 
     # Suggested house names
     "house_name_main": "🏠 Основной дом",

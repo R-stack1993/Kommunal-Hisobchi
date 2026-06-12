@@ -894,6 +894,13 @@ async def _save_sms_reading(message: types.Message, user_id: int, house_id: int,
         await state.clear()
         return
 
+    # Verify house ownership before any write operation
+    house = await get_house_by_id(house_id, telegram_id=user_id)
+    if not house:
+        await message.answer(get_text('house_not_found', lang))
+        await state.clear()
+        return
+
     # Validate that reading is not less than previous stored value
     last_record, _, _ = await get_readings_context(user_id, house_id, utility_type)
     if last_record and reading_value < last_record.reading_value:
@@ -904,9 +911,9 @@ async def _save_sms_reading(message: types.Message, user_id: int, house_id: int,
         await state.clear()
         return
 
+    # Save the new reading (after ownership and validation checks pass)
     await save_new_reading(user_id, house_id, utility_type, reading_value)
 
-    house = await get_house_by_id(house_id, telegram_id=user_id)
     icon = "💡" if utility_type == "elektr" else "🔥"
 
     # Calculate cost based on usage if available
@@ -914,8 +921,7 @@ async def _save_sms_reading(message: types.Message, user_id: int, house_id: int,
     if usage:
         cost, _ = calculate_tiered_cost(usage, utility_type)
     else:
-        # Try to calculate from readings context
-        last_record, _, _ = await get_readings_context(user_id, house_id, utility_type)
+        # Use pre-save last_record for cost calculation (not re-fetched after save)
         if last_record and last_record.reading_value < reading_value:
             calc_usage = reading_value - last_record.reading_value
             cost, _ = calculate_tiered_cost(calc_usage, utility_type)

@@ -48,6 +48,7 @@ MESSAGES = {
     "house_delete_no": "❌ Bekor qilish",
     "house_deleted": "✅ Uy va uning tarixi to'liq o'chirildi.",
     "house_delete_error": "Xatolik.",
+    "house_not_found": "Uy topilmadi yoki sizga tegishli emas.",
 
     # Suggested house names
     "house_name_main": "🏠 Asosiy uy",
