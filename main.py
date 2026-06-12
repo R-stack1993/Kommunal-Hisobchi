@@ -35,7 +35,13 @@ from pdf_report import generate_monthly_pdf
 from sms_parser import parse_sms, is_sms_like
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID'))
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN environment variable is not set. Please configure it in .env file.")
+
+_admin_id_raw = os.getenv('ADMIN_ID')
+if not _admin_id_raw:
+    raise RuntimeError("ADMIN_ID environment variable is not set. Please configure it in .env file.")
+ADMIN_ID = int(_admin_id_raw)
 
 
 # --- DYNAMIC KEYBOARDS ---
@@ -262,7 +268,10 @@ async def inline_select_house(callback: types.CallbackQuery, state: FSMContext):
     lang = await get_user_language(callback.from_user.id)
     _, utility_type, house_id_str = callback.data.split("_")
     house_id = int(house_id_str)
-    house = await get_house_by_id(house_id)
+    house = await get_house_by_id(house_id, telegram_id=callback.from_user.id)
+    if not house:
+        await callback.answer(get_text('house_delete_error', lang), show_alert=True)
+        return
     
     await state.update_data(utility_type=utility_type, house_id=house_id)
     await callback.message.delete()
@@ -299,7 +308,7 @@ async def process_current_reading(message: types.Message, state: FSMContext):
     house_id = data['house_id']
     current_reading = float(message.text)
     
-    house = await get_house_by_id(house_id)
+    house = await get_house_by_id(house_id, telegram_id=message.from_user.id)
     last_record, curr_month_start, prev_month_start = await get_readings_context(message.from_user.id, house_id, utility_type)
     
     if last_record and current_reading < last_record.reading_value:
@@ -483,7 +492,10 @@ async def process_chart_generation(callback: types.CallbackQuery):
     
     _, utility_type, house_id_str = callback.data.split("_")
     house_id = int(house_id_str)
-    house = await get_house_by_id(house_id)
+    house = await get_house_by_id(house_id, telegram_id=callback.from_user.id)
+    if not house:
+        await callback.answer(get_text('house_delete_error', lang), show_alert=True)
+        return
     
     usage_data = await get_monthly_usage_data(callback.from_user.id, house_id, utility_type)
     
@@ -522,6 +534,11 @@ async def pdf_report_menu(message: types.Message):
 async def pdf_select_house(callback: types.CallbackQuery):
     lang = await get_user_language(callback.from_user.id)
     house_id = int(callback.data.split("_")[2])
+    # Verify ownership
+    house = await get_house_by_id(house_id, telegram_id=callback.from_user.id)
+    if not house:
+        await callback.answer(get_text('house_delete_error', lang), show_alert=True)
+        return
 
     ikb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text('pdf_elektr_btn', lang), callback_data=f"pdfrep_util_elektr_{house_id}")],
@@ -565,7 +582,10 @@ async def pdf_generate_report(callback: types.CallbackQuery):
 
     await callback.message.edit_text(get_text('pdf_generating', lang))
 
-    house = await get_house_by_id(house_id)
+    house = await get_house_by_id(house_id, telegram_id=callback.from_user.id)
+    if not house:
+        await callback.message.edit_text(get_text('house_delete_error', lang))
+        return
     start_reading, end_reading = await get_monthly_report_data(
         callback.from_user.id, house_id, utility_type, target_year, target_month
     )
@@ -658,6 +678,7 @@ async def send_auto_pdf_reports():
                         caption=caption,
                         parse_mode="Markdown"
                     )
+                    await asyncio.sleep(0.05)
         except Exception:
             pass
 
@@ -873,9 +894,19 @@ async def _save_sms_reading(message: types.Message, user_id: int, house_id: int,
         await state.clear()
         return
 
+    # Validate that reading is not less than previous stored value
+    last_record, _, _ = await get_readings_context(user_id, house_id, utility_type)
+    if last_record and reading_value < last_record.reading_value:
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=get_text('reading_too_small', lang)
+        )
+        await state.clear()
+        return
+
     await save_new_reading(user_id, house_id, utility_type, reading_value)
 
-    house = await get_house_by_id(house_id)
+    house = await get_house_by_id(house_id, telegram_id=user_id)
     icon = "💡" if utility_type == "elektr" else "🔥"
 
     # Calculate cost based on usage if available

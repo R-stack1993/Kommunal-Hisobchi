@@ -1,0 +1,21 @@
+{
+  "project_type": "Telegram bot using aiogram 3.x with FSM, APScheduler, matplotlib, openpyxl",
+  "language": "Python 3.11",
+  "build_system": "None (direct Python script execution)",
+  "test_framework": "None (no existing tests)",
+  "build_command": "python -c \"import py_compile; py_compile.compile('main.py', doraise=True); py_compile.compile('database.py', doraise=True); py_compile.compile('config.py', doraise=True)\"",
+  "test_command": "python -c \"import ast; [ast.parse(open(f).read()) for f in ['main.py','database.py','config.py','drop_tables.py']]\"",
+  "verification_instructions": "1. Run python syntax check on all .py files. 2. Verify imports resolve (where possible). 3. Confirm .env.example exists with proper placeholders.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "No setup needed - INTEGRATIONS_ONLY network mode means no pip install. Libraries assumed available at deploy time.",
+  "environment_constraints": "INTEGRATIONS_ONLY network - cannot pip install packages. Python 3.11 available. Write code assuming python-dotenv, reportlab are available at runtime. Focus on correct code generation.",
+  "contribution_requirements": "Single branch (main), one initial commit. No CI/CD, no contributing guide.",
+  "key_patterns": "Bot uses aiogram 3.x dispatcher pattern with FSM states. Database uses SQLAlchemy async with asyncpg. Hardcoded BOT_TOKEN, ADMIN_ID in main.py, DATABASE_URL in database.py. Tariff calculation in config.py. Houses (max 5) per user, readings per house/utility. ReplyKeyboardMarkup for main menu, InlineKeyboardMarkup for actions. All text currently in Uzbek (latin).",
+  "relevant_files": [
+    "main.py",
+    "database.py",
+    "config.py",
+    "drop_tables.py"
+  ],
+  "directory_structure": "Flat structure: main.py (bot entry point ~300 lines), config.py (tariff logic), database.py (SQLAlchemy models + CRUD), drop_tables.py (utility). New files to create: .env, .env.example, locales/ directory, pdf_report.py, sms_parser.py"
+}

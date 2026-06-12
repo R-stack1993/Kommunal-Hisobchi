@@ -4,7 +4,7 @@
   "description": "Move hardcoded secrets (BOT_TOKEN, ADMIN_ID, DATABASE_URL) to .env file using python-dotenv. Create .env and .env.example files.",
   "status": "completed",
   "steps": [
-    "Create .env file in project root with: BOT_TOKEN=8818283629:AAEo7_SLk9GbEDBPb9_JBW9st-EGCp0rRYA, ADMIN_ID=8674151713, DATABASE_URL=postgresql+asyncpg://postgres:Pumpimpam19939577@localhost/utilities_db",
+    "Create .env file in project root with: BOT_TOKEN=REDACTED, ADMIN_ID=REDACTED, DATABASE_URL=postgresql+asyncpg://user:REDACTED@localhost/utilities_db",
     "Create .env.example file with placeholder values: BOT_TOKEN=your_bot_token_here, ADMIN_ID=your_admin_id_here, DATABASE_URL=postgresql+asyncpg://user:password@localhost/utilities_db",
     "Modify main.py: add 'from dotenv import load_dotenv' and 'load_dotenv()' at the top (after standard imports). Replace hardcoded BOT_TOKEN with os.getenv('BOT_TOKEN') and ADMIN_ID with int(os.getenv('ADMIN_ID')). The 'import os' is already present.",
     "Modify database.py: add 'import os' and 'from dotenv import load_dotenv' and 'load_dotenv()' at the top. Replace hardcoded DATABASE_URL with os.getenv('DATABASE_URL').",

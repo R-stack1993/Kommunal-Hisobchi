@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy import select
 
 DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set. Please configure it in .env file.")
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -106,9 +108,12 @@ async def get_user_houses(telegram_id: int):
         result = await session.execute(select(House).where(House.telegram_id == telegram_id).order_by(House.id))
         return result.scalars().all()
 
-async def get_house_by_id(house_id: int):
+async def get_house_by_id(house_id: int, telegram_id: int = None):
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(House).where(House.id == house_id))
+        query = select(House).where(House.id == house_id)
+        if telegram_id is not None:
+            query = query.where(House.telegram_id == telegram_id)
+        result = await session.execute(query)
         return result.scalar()
 
 async def add_house(telegram_id: int, name: str) -> bool:
@@ -210,34 +215,34 @@ async def delete_all_readings_for_house(telegram_id: int, house_id: int, utility
 
 async def get_monthly_report_data(telegram_id: int, house_id: int, utility_type: str, year: int, month: int):
     """
-    Get the first (min) and last (max) reading values for a given house/utility
+    Get the chronologically first and last reading values for a given house/utility
     in a specific month/year, used for calculating monthly usage.
 
     Returns:
         Tuple of (start_reading, end_reading) or (None, None) if no data found.
     """
     async with AsyncSessionLocal() as session:
-        # Get the minimum (first) reading of the month
-        query_min = select(func.min(Reading.reading_value)).where(
+        # Get the first reading of the month (chronologically)
+        query_first = select(Reading.reading_value).where(
             Reading.telegram_id == telegram_id,
             Reading.house_id == house_id,
             Reading.utility_type == utility_type,
             extract('year', Reading.created_at) == year,
             extract('month', Reading.created_at) == month
-        )
-        result_min = await session.execute(query_min)
-        start_reading = result_min.scalar()
+        ).order_by(asc(Reading.created_at)).limit(1)
+        result_first = await session.execute(query_first)
+        start_reading = result_first.scalar()
 
-        # Get the maximum (last) reading of the month
-        query_max = select(func.max(Reading.reading_value)).where(
+        # Get the last reading of the month (chronologically)
+        query_last = select(Reading.reading_value).where(
             Reading.telegram_id == telegram_id,
             Reading.house_id == house_id,
             Reading.utility_type == utility_type,
             extract('year', Reading.created_at) == year,
             extract('month', Reading.created_at) == month
-        )
-        result_max = await session.execute(query_max)
-        end_reading = result_max.scalar()
+        ).order_by(desc(Reading.created_at)).limit(1)
+        result_last = await session.execute(query_last)
+        end_reading = result_last.scalar()
 
         if start_reading is None or end_reading is None:
             return None, None
