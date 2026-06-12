@@ -2,7 +2,7 @@
   "id": "FEAT-005",
   "type": "fix",
   "description": "Fix issues from semantic review: env var validation, SMS reading validation bypass, house ownership in callbacks, chronological report ordering, rate limiting in auto reports, and credential redaction in task metadata.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Add startup validation for BOT_TOKEN and ADMIN_ID in main.py",
     "Add startup validation for DATABASE_URL in database.py",
@@ -31,5 +31,5 @@
     "grep -q 'asyncio.sleep' main.py | grep -c 'send_auto_pdf_reports'"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "All 6 fixes implemented and verified. Syntax validation passes for all 9 Python files. The get_house_by_id function now accepts optional telegram_id parameter with backward compatibility (None means no filter). The _save_sms_reading now calls get_readings_context before saving to check previous reading value."
 }
