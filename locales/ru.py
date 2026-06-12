@@ -169,4 +169,23 @@ MESSAGES = {
     "pdf_month_previous": "📅 Предыдущий месяц",
     "pdf_select_month": "За какой месяц нужен отчет?",
     "pdf_auto_report_caption": "📄 Автоматический PDF отчет за прошлый месяц: **{house_name}** - {utility}",
+
+    # SMS Parsing
+    "sms_parsed_success": "📨 SMS успешно проанализировано!\n\n{details}",
+    "sms_parse_failed": "❌ Не удалось извлечь данные из SMS. Пожалуйста, введите показания вручную.",
+    "sms_select_house": "📨 Из SMS извлечены показания.\n\nДля какого дома сохранить?",
+    "sms_select_utility": "Для какого типа услуги сохранить?",
+    "sms_saved_confirmation": (
+        "✅ Данные из SMS сохранены!\n\n"
+        "🏠 Адрес: **{house_name}**\n"
+        "🛠 Услуга: {icon} {utility}\n"
+        "📊 Показание: **{reading}**\n"
+        "💰 Рассчитанная сумма: **{cost} сум**"
+    ),
+    "sms_reading_label": "Показание: {value}",
+    "sms_usage_label": "Расход: {value}",
+    "sms_amount_label": "Сумма: {value} сум",
+    "sms_no_reading": "⚠️ В SMS не найдено показание счетчика. Обнаружен только расход или сумма. Пожалуйста, введите показание вручную.",
+    "sms_elektr_btn": "💡 Электричество",
+    "sms_gaz_btn": "🔥 Газ",
 }

@@ -32,6 +32,7 @@ from database import (
 )
 from locales import get_text
 from pdf_report import generate_monthly_pdf
+from sms_parser import parse_sms, is_sms_like
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_ID = int(os.getenv('ADMIN_ID'))
@@ -98,6 +99,10 @@ class PdfReportForm(StatesGroup):
     waiting_for_house = State()
     waiting_for_utility = State()
     waiting_for_month = State()
+
+class SmsForm(StatesGroup):
+    waiting_for_house_selection = State()
+    waiting_for_utility_selection = State()
 
 
 bot = Bot(token=BOT_TOKEN)
@@ -726,6 +731,176 @@ async def send_broadcast(message: types.Message, state: FSMContext):
             except:
                 fail += 1
     await message.answer(get_text('admin_broadcast_done', lang, sent=sent, fail=fail), reply_markup=get_admin_kb(lang))
+    await state.clear()
+
+# --- SMS FORWARDING / PARSING ---
+@dp.message(F.chat.type == "private", F.forward_date)
+async def handle_forwarded_sms(message: types.Message, state: FSMContext):
+    """Handle forwarded messages - attempt to parse as utility SMS."""
+    await _process_sms_message(message, state)
+
+@dp.message(F.chat.type == "private", SmsForm.waiting_for_house_selection)
+async def sms_house_selected_text(message: types.Message, state: FSMContext):
+    """Fallback if user types text while waiting for house selection."""
+    lang = await get_user_language(message.from_user.id)
+    await message.answer(get_text('sms_select_house', lang))
+
+@dp.message(F.chat.type == "private", SmsForm.waiting_for_utility_selection)
+async def sms_utility_selected_text(message: types.Message, state: FSMContext):
+    """Fallback if user types text while waiting for utility selection."""
+    lang = await get_user_language(message.from_user.id)
+    await message.answer(get_text('sms_select_utility', lang))
+
+@dp.callback_query(F.data.startswith("sms_house_"))
+async def sms_house_callback(callback: types.CallbackQuery, state: FSMContext):
+    """User selected a house for SMS reading."""
+    lang = await get_user_language(callback.from_user.id)
+    house_id = int(callback.data.split("_")[2])
+    data = await state.get_data()
+    sms_data = data.get('sms_data', {})
+    utility_type = sms_data.get('utility_type')
+
+    await state.update_data(sms_house_id=house_id)
+
+    if utility_type:
+        # Utility type is known, save directly
+        await _save_sms_reading(callback.message, callback.from_user.id, house_id, utility_type, sms_data, lang, state)
+        await callback.message.delete()
+    else:
+        # Ask for utility type
+        ikb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=get_text('sms_elektr_btn', lang), callback_data="sms_util_elektr")],
+            [InlineKeyboardButton(text=get_text('sms_gaz_btn', lang), callback_data="sms_util_gaz")]
+        ])
+        await callback.message.edit_text(get_text('sms_select_utility', lang), reply_markup=ikb)
+        await state.set_state(SmsForm.waiting_for_utility_selection)
+
+@dp.callback_query(F.data.startswith("sms_util_"))
+async def sms_utility_callback(callback: types.CallbackQuery, state: FSMContext):
+    """User selected a utility type for SMS reading."""
+    lang = await get_user_language(callback.from_user.id)
+    utility_type = callback.data.split("_")[2]  # 'elektr' or 'gaz'
+    data = await state.get_data()
+    sms_data = data.get('sms_data', {})
+    house_id = data.get('sms_house_id')
+
+    if not house_id:
+        # Should not happen, but handle gracefully
+        await callback.message.edit_text(get_text('sms_parse_failed', lang))
+        await state.clear()
+        return
+
+    await _save_sms_reading(callback.message, callback.from_user.id, house_id, utility_type, sms_data, lang, state)
+    await callback.message.delete()
+
+
+async def _process_sms_message(message: types.Message, state: FSMContext):
+    """Core logic for processing SMS-like messages."""
+    lang = await get_user_language(message.from_user.id)
+    text = message.text or message.caption or ""
+
+    if not text:
+        return
+
+    sms_data = parse_sms(text)
+
+    # Check if parsing found anything useful
+    if not sms_data.get('reading') and not sms_data.get('usage') and not sms_data.get('amount'):
+        # If forwarded but could not parse, notify user
+        if message.forward_date:
+            await message.answer(get_text('sms_parse_failed', lang))
+        return
+
+    # We need a reading value to save
+    if not sms_data.get('reading'):
+        await message.answer(get_text('sms_no_reading', lang))
+        return
+
+    # Show parsed details
+    details_parts = []
+    if sms_data.get('reading'):
+        details_parts.append(get_text('sms_reading_label', lang, value=f"{sms_data['reading']:,.0f}"))
+    if sms_data.get('usage'):
+        details_parts.append(get_text('sms_usage_label', lang, value=f"{sms_data['usage']:,.0f}"))
+    if sms_data.get('amount'):
+        details_parts.append(get_text('sms_amount_label', lang, value=f"{sms_data['amount']:,.0f}"))
+
+    details_text = "\n".join(details_parts)
+    await message.answer(get_text('sms_parsed_success', lang, details=details_text))
+
+    await add_user(message.from_user.id, message.from_user.full_name)
+    houses = await get_user_houses(message.from_user.id)
+
+    if not houses:
+        await message.answer(get_text('no_houses_for_utility', lang))
+        return
+
+    # Store parsed data in FSM
+    await state.update_data(sms_data=sms_data)
+
+    if len(houses) == 1:
+        house = houses[0]
+        utility_type = sms_data.get('utility_type')
+
+        if utility_type:
+            # Everything is clear - save directly
+            await _save_sms_reading(message, message.from_user.id, house.id, utility_type, sms_data, lang, state)
+        else:
+            # Ask for utility type
+            await state.update_data(sms_house_id=house.id)
+            ikb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=get_text('sms_elektr_btn', lang), callback_data="sms_util_elektr")],
+                [InlineKeyboardButton(text=get_text('sms_gaz_btn', lang), callback_data="sms_util_gaz")]
+            ])
+            await message.answer(get_text('sms_select_utility', lang), reply_markup=ikb)
+            await state.set_state(SmsForm.waiting_for_utility_selection)
+    else:
+        # Multiple houses - ask which one
+        ikb = InlineKeyboardMarkup(inline_keyboard=[])
+        for h in houses:
+            ikb.inline_keyboard.append([
+                InlineKeyboardButton(text=h.name, callback_data=f"sms_house_{h.id}")
+            ])
+        await message.answer(get_text('sms_select_house', lang), reply_markup=ikb)
+        await state.set_state(SmsForm.waiting_for_house_selection)
+
+
+async def _save_sms_reading(message: types.Message, user_id: int, house_id: int, utility_type: str, sms_data: dict, lang: str, state: FSMContext):
+    """Save the parsed SMS reading and show confirmation."""
+    reading_value = sms_data.get('reading')
+    if not reading_value:
+        await message.answer(get_text('sms_no_reading', lang))
+        await state.clear()
+        return
+
+    await save_new_reading(user_id, house_id, utility_type, reading_value)
+
+    house = await get_house_by_id(house_id)
+    icon = "💡" if utility_type == "elektr" else "🔥"
+
+    # Calculate cost based on usage if available
+    usage = sms_data.get('usage')
+    if usage:
+        cost, _ = calculate_tiered_cost(usage, utility_type)
+    else:
+        # Try to calculate from readings context
+        last_record, _, _ = await get_readings_context(user_id, house_id, utility_type)
+        if last_record and last_record.reading_value < reading_value:
+            calc_usage = reading_value - last_record.reading_value
+            cost, _ = calculate_tiered_cost(calc_usage, utility_type)
+        else:
+            cost = 0
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=get_text('sms_saved_confirmation', lang,
+                      house_name=house.name,
+                      icon=icon,
+                      utility=utility_type.capitalize(),
+                      reading=f"{reading_value:,.0f}",
+                      cost=f"{cost:,.0f}"),
+        parse_mode="Markdown"
+    )
     await state.clear()
 
 @dp.message(F.chat.type == "private", Command("start"))

@@ -169,4 +169,23 @@ MESSAGES = {
     "pdf_month_previous": "📅 O'tgan oy",
     "pdf_select_month": "Qaysi oy uchun hisobot kerak?",
     "pdf_auto_report_caption": "📄 O'tgan oy uchun avtomatik PDF hisobot: **{house_name}** - {utility}",
+
+    # SMS Parsing
+    "sms_parsed_success": "📨 SMS muvaffaqiyatli tahlil qilindi!\n\n{details}",
+    "sms_parse_failed": "❌ SMS dan ma'lumot ajratib olib bo'lmadi. Iltimos, ko'rsatkichni qo'lda kiriting.",
+    "sms_select_house": "📨 SMS dan ko'rsatkich topildi.\n\nQaysi uy uchun saqlash kerak?",
+    "sms_select_utility": "Qaysi xizmat turi uchun saqlash kerak?",
+    "sms_saved_confirmation": (
+        "✅ SMS ma'lumotlari saqlandi!\n\n"
+        "🏠 Manzil: **{house_name}**\n"
+        "🛠 Xizmat: {icon} {utility}\n"
+        "📊 Ko'rsatkich: **{reading}**\n"
+        "💰 Hisoblangan summa: **{cost} so'm**"
+    ),
+    "sms_reading_label": "Ko'rsatkich: {value}",
+    "sms_usage_label": "Sarf: {value}",
+    "sms_amount_label": "Summa: {value} so'm",
+    "sms_no_reading": "⚠️ SMS da ko'rsatkich (reading) topilmadi. Faqat sarf yoki summa aniqlandi. Iltimos, ko'rsatkichni qo'lda kiriting.",
+    "sms_elektr_btn": "💡 Elektr",
+    "sms_gaz_btn": "🔥 Gaz",
 }
