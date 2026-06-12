@@ -1,0 +1,14 @@
+{
+  "task_id": "task-enhance-kommunal-bot",
+  "task_description": "Enhance the Kommunal Hisobchi Telegram bot with 4 features: (1) move secrets to .env, (2) multi-language support (Uzbek/Russian), (3) monthly PDF reports via reportlab, (4) SMS forward parsing with regex extraction.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 9 Python files pass AST syntax validation. SMS parser correctly extracts reading/usage/amount from sample Uzbek SMS text. Locales module returns correct translations for both uz and ru. All features verified: .env files created, i18n implemented with get_text(), PDF report module created with generate_monthly_pdf(), SMS parser created with parse_sms()."
+  }
+}

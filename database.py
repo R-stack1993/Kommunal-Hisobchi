@@ -1,11 +1,17 @@
 # database.py
+import os
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
+
 from sqlalchemy import BigInteger, String, Float, DateTime, Integer, ForeignKey, extract, asc, desc, delete, func, update, Boolean
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import select
 
-DATABASE_URL = "postgresql+asyncpg://postgres:Pumpimpam19939577@localhost/utilities_db"
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set. Please configure it in .env file.")
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -19,6 +25,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String, nullable=True)
+    language: Mapped[str] = mapped_column(String, default='uz')
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -82,15 +89,31 @@ async def check_if_banned(telegram_id: int) -> bool:
         result = await session.execute(select(User.is_banned).where(User.telegram_id == telegram_id))
         return bool(result.scalar())
 
+async def get_user_language(telegram_id: int) -> str:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User.language).where(User.telegram_id == telegram_id))
+        lang = result.scalar()
+        return lang if lang else 'uz'
+
+async def set_user_language(telegram_id: int, lang: str):
+    async with AsyncSessionLocal() as session:
+        await session.execute(
+            update(User).where(User.telegram_id == telegram_id).values(language=lang)
+        )
+        await session.commit()
+
 # --- HOUSE LOGIC ---
 async def get_user_houses(telegram_id: int):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(House).where(House.telegram_id == telegram_id).order_by(House.id))
         return result.scalars().all()
 
-async def get_house_by_id(house_id: int):
+async def get_house_by_id(house_id: int, telegram_id: int = None):
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(House).where(House.id == house_id))
+        query = select(House).where(House.id == house_id)
+        if telegram_id is not None:
+            query = query.where(House.telegram_id == telegram_id)
+        result = await session.execute(query)
         return result.scalar()
 
 async def add_house(telegram_id: int, name: str) -> bool:
@@ -189,6 +212,43 @@ async def delete_all_readings_for_house(telegram_id: int, house_id: int, utility
         result = await session.execute(query)
         await session.commit()
         return result.rowcount
+
+async def get_monthly_report_data(telegram_id: int, house_id: int, utility_type: str, year: int, month: int):
+    """
+    Get the chronologically first and last reading values for a given house/utility
+    in a specific month/year, used for calculating monthly usage.
+
+    Returns:
+        Tuple of (start_reading, end_reading) or (None, None) if no data found.
+    """
+    async with AsyncSessionLocal() as session:
+        # Get the first reading of the month (chronologically)
+        query_first = select(Reading.reading_value).where(
+            Reading.telegram_id == telegram_id,
+            Reading.house_id == house_id,
+            Reading.utility_type == utility_type,
+            extract('year', Reading.created_at) == year,
+            extract('month', Reading.created_at) == month
+        ).order_by(asc(Reading.created_at)).limit(1)
+        result_first = await session.execute(query_first)
+        start_reading = result_first.scalar()
+
+        # Get the last reading of the month (chronologically)
+        query_last = select(Reading.reading_value).where(
+            Reading.telegram_id == telegram_id,
+            Reading.house_id == house_id,
+            Reading.utility_type == utility_type,
+            extract('year', Reading.created_at) == year,
+            extract('month', Reading.created_at) == month
+        ).order_by(desc(Reading.created_at)).limit(1)
+        result_last = await session.execute(query_last)
+        end_reading = result_last.scalar()
+
+        if start_reading is None or end_reading is None:
+            return None, None
+
+        return start_reading, end_reading
+
 
 async def get_monthly_usage_data(telegram_id: int, house_id: int, utility_type: str):
     async with AsyncSessionLocal() as session:

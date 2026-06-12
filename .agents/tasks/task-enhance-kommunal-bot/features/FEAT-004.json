@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Add SMS forward parsing feature. When a user forwards an SMS from electricity/gas companies, the bot parses numbers (reading, usage, amount) using regex and saves them to the appropriate house. If the bot cannot determine which house/utility, it asks the user.",
+  "status": "completed",
+  "steps": [
+    "Create sms_parser.py module in project root. It should have a function parse_sms(text: str) -> dict that attempts to extract: reading_value (ko'rsatkich), usage (sarf), amount/cost (summa), and optionally utility_type from the SMS text. Use regex patterns to match common Uzbek electricity and gas SMS formats. Return a dict with keys: 'reading', 'usage', 'amount', 'utility_type' (or None for each if not found). Include multiple regex patterns for different SMS formats (e.g., 'Joriy ko'rsatkich: 12345', 'Sarf: 100 kVt', 'To'lov: 50000 so'm', numeric patterns).",
+    "Add a new FSM state class SmsForm with states: waiting_for_house_selection, waiting_for_utility_selection in main.py.",
+    "Add a message handler in main.py that catches forwarded messages (F.forward_date exists or text messages that look like SMS). When detected: call parse_sms() on the text. If parsing succeeds and user has only one house, save the reading directly. If user has multiple houses or utility_type is unclear, show inline keyboard asking 'Qaysi uy uchun?' and 'Qaysi xizmat turi?' with house and utility options.",
+    "After house and utility are determined from the user's selection, save the parsed reading value using save_new_reading() and show a confirmation with the calculated cost (using calculate_tiered_cost).",
+    "Integrate with i18n: use get_text() for all SMS-related messages (parsing success, parsing failure, house/utility selection prompts).",
+    "Add locales entries for SMS parsing messages in both locales/uz.py and locales/ru.py: sms_parsed_success, sms_parse_failed, sms_select_house, sms_select_utility, sms_saved_confirmation."
+  ],
+  "acceptance_criteria": [
+    "sms_parser.py exists with parse_sms() function that handles multiple SMS formats",
+    "Forwarded messages are detected and parsed",
+    "If parsing succeeds with clear house/utility, reading is saved directly",
+    "If house or utility is ambiguous, bot asks user to select",
+    "After selection, reading is saved and cost is calculated",
+    "Messages use get_text() for i18n",
+    "All .py files pass Python syntax validation"
+  ],
+  "verification": [
+    "python3 -c \"import ast; ast.parse(open('sms_parser.py').read()); ast.parse(open('main.py').read()); print('All syntax OK')\"",
+    "python3 -c \"from sms_parser import parse_sms; result = parse_sms('Joriy ko\\'rsatkich: 12345 kVt. Sarf: 200. Summa: 150000 som'); print(result); assert result.get('reading') or result.get('usage') or result.get('amount'), 'Parsing failed'\"",
+    "grep -q 'parse_sms' main.py && echo 'SMS parser used in main.py' || echo 'MISSING parse_sms in main.py'",
+    "grep -q 'SmsForm' main.py && echo 'SmsForm state exists' || echo 'MISSING SmsForm state'"
+  ],
+  "blocked_reason": null,
+  "findings": "SMS parser successfully created with regex patterns for both Uzbek and Russian utility SMS formats. Handles ko'rsatkich, sarf, summa extraction. Detects utility type based on keyword scoring (kVt/elektr vs m3/gaz). Handler placed before /start to catch forwarded messages. SmsForm FSM state manages multi-step flows for house/utility selection."
+}

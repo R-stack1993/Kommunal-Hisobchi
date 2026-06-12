@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-006",
+  "type": "fix",
+  "description": "Fix v2 review issues: SMS cost calculation always zero (re-fetch after save) and save-before-ownership-check in _save_sms_reading.",
+  "status": "completed",
+  "steps": [
+    "Move house ownership verification (get_house_by_id) before save_new_reading in _save_sms_reading",
+    "Return error message if house is None (not owned by user)",
+    "Reuse pre-save last_record for cost calculation instead of re-fetching after save",
+    "Add house_not_found locale key to both uz.py and ru.py"
+  ],
+  "acceptance_criteria": [
+    "_save_sms_reading verifies house ownership before calling save_new_reading",
+    "If house is None, function returns error without saving",
+    "Cost calculation uses the last_record fetched before save (not after)",
+    "The second get_readings_context call after save is removed",
+    "house_not_found locale key exists in both language files",
+    "All .py files pass Python syntax validation"
+  ],
+  "verification": [
+    "python3 -c \"import ast; [ast.parse(open(f).read()) for f in ['main.py','database.py','config.py','drop_tables.py','pdf_report.py','sms_parser.py','locales/__init__.py','locales/uz.py','locales/ru.py']]; print('All syntax OK')\"",
+    "grep -n 'get_house_by_id' main.py | grep '_save_sms_reading' context",
+    "grep -n 'house_not_found' locales/uz.py locales/ru.py"
+  ],
+  "blocked_reason": null,
+  "findings": "Both issues fixed by reordering function logic: ownership check first, then validation (which fetches last_record), then save, then cost calculation using the pre-save last_record. Added house_not_found locale key for proper error messages."
+}

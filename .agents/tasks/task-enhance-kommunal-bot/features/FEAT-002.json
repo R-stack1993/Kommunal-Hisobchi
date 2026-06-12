@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Add multi-language support (Uzbek latin / Russian) with /start language selection and /lang command. Store language preference in database. Create locales/ directory with all bot messages in both languages.",
+  "status": "completed",
+  "steps": [
+    "Add a 'language' column (String, default 'uz') to the User model in database.py. Add functions: get_user_language(telegram_id) -> str and set_user_language(telegram_id, lang: str).",
+    "Create locales/ directory with two files: locales/uz.py and locales/ru.py. Each file exports a dictionary (MESSAGES) with keys for ALL bot strings: greetings, menu buttons, prompts, error messages, report templates, admin messages, etc. Extract every hardcoded string from main.py into these dictionaries.",
+    "Create locales/__init__.py that provides a get_text(key, lang='uz', **kwargs) function which fetches the string from the appropriate language dictionary and formats it with kwargs if provided.",
+    "Modify the /start command handler in main.py: when a new user starts, show a language selection inline keyboard with 'O`zbekcha' and 'Russkiy' buttons. Save the selection to the database.",
+    "Add a /lang command handler in main.py that shows the language selection keyboard at any time for changing language.",
+    "Update ALL handler functions in main.py to fetch the user's language from the database and use get_text() for all bot responses. This includes: main_kb and admin_kb (make them dynamic functions that accept a lang parameter), all message.answer() calls, all callback responses, the monthly reminder text, etc.",
+    "Make the ReplyKeyboardMarkup buttons language-dependent by creating a function get_main_kb(lang) that returns the keyboard with translated button text. Similarly for admin_kb. Update F.text filters to match both language variants using F.text.in_([uz_text, ru_text]) pattern."
+  ],
+  "acceptance_criteria": [
+    "locales/uz.py exists with MESSAGES dict containing all bot strings in Uzbek",
+    "locales/ru.py exists with MESSAGES dict containing all bot strings in Russian",
+    "locales/__init__.py exists with get_text() function",
+    "User model has 'language' column with default 'uz'",
+    "database.py has get_user_language() and set_user_language() functions",
+    "/start shows language selection for new users",
+    "/lang command exists and works for changing language",
+    "All handler functions use get_text() instead of hardcoded strings",
+    "Menu keyboards are language-dependent",
+    "All .py files pass Python syntax validation"
+  ],
+  "verification": [
+    "python3 -c \"import ast; ast.parse(open('main.py').read()); ast.parse(open('database.py').read()); ast.parse(open('locales/__init__.py').read()); ast.parse(open('locales/uz.py').read()); ast.parse(open('locales/ru.py').read()); print('All syntax OK')\"",
+    "python3 -c \"from locales import get_text; assert get_text('start_welcome', 'uz'); assert get_text('start_welcome', 'ru'); print('Locales work')\"",
+    "grep -q 'get_text' main.py && echo 'main.py uses get_text' || echo 'MISSING get_text usage'",
+    "grep -q 'language' database.py && echo 'language column exists' || echo 'MISSING language column'",
+    "grep -q '/lang' main.py && echo '/lang command exists' || echo 'MISSING /lang command'"
+  ],
+  "blocked_reason": null,
+  "findings": "All verification checks pass. The admin_export_headers key stores a list rather than a string, which works because get_text() only calls .format() when kwargs are provided. The /lang command uses Command('lang') filter. Language selection callback handles both new and existing users."
+}

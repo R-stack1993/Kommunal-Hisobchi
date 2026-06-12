@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Add monthly PDF report generation using reportlab. Users can request a PDF report via a button, or it can be generated at month end. PDF includes: house name, utility type, month, start/end readings, usage amount, payment sum, date.",
+  "status": "completed",
+  "steps": [
+    "Create pdf_report.py module in project root. It should have a function generate_monthly_pdf(house_name, utility_type, month_year, start_reading, end_reading, usage, cost, date_generated, lang='uz') that returns a BytesIO buffer with the PDF. Use reportlab.lib.pagesizes, reportlab.platypus (SimpleDocTemplate, Table, TableStyle, Paragraph), reportlab.lib.styles, reportlab.lib.colors. The PDF should have a title, a table with the data, and proper formatting.",
+    "Add database function in database.py: get_monthly_report_data(telegram_id, house_id, utility_type, year, month) that returns the first and last readings of a given month for calculating usage.",
+    "Add a 'PDF hisobot' / 'PDF otchet' button to the main keyboard (get_main_kb function). Add it as a new row in the keyboard.",
+    "Add handler in main.py for the PDF report button. When pressed: show user their houses, let them select house and utility type, then generate PDF for the current or previous month. Send the PDF as a document using BufferedInputFile.",
+    "Integrate with i18n: use get_text() for all PDF report related messages and the PDF content labels (headers, column names).",
+    "Add scheduled job or integrate with existing month-end reminder to optionally auto-generate and send PDF reports to users who have readings for the past month."
+  ],
+  "acceptance_criteria": [
+    "pdf_report.py exists with generate_monthly_pdf() function",
+    "PDF contains: house name, utility type, month, start reading, end reading, usage, cost, date",
+    "Main keyboard has PDF report button",
+    "Handler allows selecting house and utility for PDF generation",
+    "PDF is sent as a document to the user",
+    "Messages use get_text() for i18n",
+    "All .py files pass Python syntax validation"
+  ],
+  "verification": [
+    "python3 -c \"import ast; ast.parse(open('pdf_report.py').read()); ast.parse(open('main.py').read()); ast.parse(open('database.py').read()); print('All syntax OK')\"",
+    "grep -q 'generate_monthly_pdf' pdf_report.py && echo 'PDF function exists' || echo 'MISSING PDF function'",
+    "grep -q 'pdf' main.py && echo 'PDF handler in main.py' || echo 'MISSING PDF handler'",
+    "grep -q 'get_monthly_report_data' database.py && echo 'Report data function exists' || echo 'MISSING report data function'"
+  ],
+  "blocked_reason": null,
+  "findings": "All verification checks pass. PDF report feature includes: pdf_report.py with generate_monthly_pdf(), get_monthly_report_data() in database.py, PDF button in main keyboard, full handler flow (house -> utility -> month selection -> PDF generation), i18n keys in both uz/ru locales, and auto-send scheduled job at month start (day=1, hour=10). The PdfReportForm FSM class was added but callbacks are used instead of FSM state flow for simpler interaction."
+}
