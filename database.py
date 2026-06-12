@@ -23,6 +23,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String, nullable=True)
+    language: Mapped[str] = mapped_column(String, default='uz')
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -85,6 +86,19 @@ async def check_if_banned(telegram_id: int) -> bool:
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User.is_banned).where(User.telegram_id == telegram_id))
         return bool(result.scalar())
+
+async def get_user_language(telegram_id: int) -> str:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User.language).where(User.telegram_id == telegram_id))
+        lang = result.scalar()
+        return lang if lang else 'uz'
+
+async def set_user_language(telegram_id: int, lang: str):
+    async with AsyncSessionLocal() as session:
+        await session.execute(
+            update(User).where(User.telegram_id == telegram_id).values(language=lang)
+        )
+        await session.commit()
 
 # --- HOUSE LOGIC ---
 async def get_user_houses(telegram_id: int):
