@@ -208,6 +208,43 @@ async def delete_all_readings_for_house(telegram_id: int, house_id: int, utility
         await session.commit()
         return result.rowcount
 
+async def get_monthly_report_data(telegram_id: int, house_id: int, utility_type: str, year: int, month: int):
+    """
+    Get the first (min) and last (max) reading values for a given house/utility
+    in a specific month/year, used for calculating monthly usage.
+
+    Returns:
+        Tuple of (start_reading, end_reading) or (None, None) if no data found.
+    """
+    async with AsyncSessionLocal() as session:
+        # Get the minimum (first) reading of the month
+        query_min = select(func.min(Reading.reading_value)).where(
+            Reading.telegram_id == telegram_id,
+            Reading.house_id == house_id,
+            Reading.utility_type == utility_type,
+            extract('year', Reading.created_at) == year,
+            extract('month', Reading.created_at) == month
+        )
+        result_min = await session.execute(query_min)
+        start_reading = result_min.scalar()
+
+        # Get the maximum (last) reading of the month
+        query_max = select(func.max(Reading.reading_value)).where(
+            Reading.telegram_id == telegram_id,
+            Reading.house_id == house_id,
+            Reading.utility_type == utility_type,
+            extract('year', Reading.created_at) == year,
+            extract('month', Reading.created_at) == month
+        )
+        result_max = await session.execute(query_max)
+        end_reading = result_max.scalar()
+
+        if start_reading is None or end_reading is None:
+            return None, None
+
+        return start_reading, end_reading
+
+
 async def get_monthly_usage_data(telegram_id: int, house_id: int, utility_type: str):
     async with AsyncSessionLocal() as session:
         query = select(Reading).where(

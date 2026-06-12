@@ -142,4 +142,31 @@ MESSAGES = {
 
     # Monthly reminder
     "monthly_reminder": "🔔 **Yangi oy boshlandi!**\n\nHisobotlarni ko'rish uchun ko'rsatkichlarni kiriting.",
+
+    # PDF Report
+    "btn_pdf_report": "📄 PDF hisobot",
+    "pdf_title": "Oylik Kommunal Hisobot",
+    "pdf_utility_elektr": "Elektr energiyasi",
+    "pdf_utility_gaz": "Gaz",
+    "pdf_col_house": "Manzil nomi",
+    "pdf_col_utility": "Xizmat turi",
+    "pdf_col_month": "Oy",
+    "pdf_col_start_reading": "Boshlang'ich ko'rsatkich",
+    "pdf_col_end_reading": "Yakuniy ko'rsatkich",
+    "pdf_col_usage": "Sarf miqdori",
+    "pdf_col_cost": "To'lov summasi",
+    "pdf_col_date": "Sana",
+    "pdf_footer": "Ushbu hisobot avtomatik tarzda yaratilgan.",
+    "pdf_select_house": "Qaysi manzil uchun PDF hisobot olmoqchisiz?",
+    "pdf_select_utility": "Qaysi xizmat turi bo'yicha hisobot kerak?",
+    "pdf_no_data": "Ushbu oy uchun ma'lumotlar topilmadi. Avval ko'rsatkichlarni kiriting.",
+    "pdf_generating": "PDF hisobot tayyorlanmoqda... ⏳",
+    "pdf_caption": "📄 **{house_name}** uchun {utility} - {month_year} oylik hisobot",
+    "pdf_house_btn": "🏠 {name}",
+    "pdf_elektr_btn": "💡 Elektr",
+    "pdf_gaz_btn": "🔥 Gaz",
+    "pdf_month_current": "📅 Joriy oy",
+    "pdf_month_previous": "📅 O'tgan oy",
+    "pdf_select_month": "Qaysi oy uchun hisobot kerak?",
+    "pdf_auto_report_caption": "📄 O'tgan oy uchun avtomatik PDF hisobot: **{house_name}** - {utility}",
 }

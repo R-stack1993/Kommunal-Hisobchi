@@ -27,9 +27,11 @@ from database import (
     init_models, add_user, get_readings_context, save_new_reading, get_all_users, 
     delete_last_reading, count_users, get_all_users_detailed, set_user_ban_status, check_if_banned, 
     get_monthly_usage_data, get_user_houses, add_house, delete_house, get_house_by_id,
-    delete_all_readings_for_house, get_user_language, set_user_language
+    delete_all_readings_for_house, get_user_language, set_user_language,
+    get_monthly_report_data
 )
 from locales import get_text
+from pdf_report import generate_monthly_pdf
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_ID = int(os.getenv('ADMIN_ID'))
@@ -41,6 +43,7 @@ def get_main_kb(lang: str = 'uz') -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text=get_text('btn_elektr', lang)), KeyboardButton(text=get_text('btn_gaz', lang))],
             [KeyboardButton(text=get_text('btn_my_houses', lang)), KeyboardButton(text=get_text('btn_my_stats', lang))],
+            [KeyboardButton(text=get_text('btn_pdf_report', lang))],
             [KeyboardButton(text=get_text('btn_clear_history', lang))],
             [KeyboardButton(text=get_text('btn_share', lang)), KeyboardButton(text=get_text('btn_add_group', lang))]
         ],
@@ -90,6 +93,11 @@ class AdminForm(StatesGroup):
 class AdminBanForm(StatesGroup):
     waiting_for_ban = State()
     waiting_for_unban = State()
+
+class PdfReportForm(StatesGroup):
+    waiting_for_house = State()
+    waiting_for_utility = State()
+    waiting_for_month = State()
 
 
 bot = Bot(token=BOT_TOKEN)
@@ -484,6 +492,170 @@ async def process_chart_generation(callback: types.CallbackQuery):
     caption = get_text('stats_caption', lang, house_name=house.name, utility=utility_type.capitalize())
     await callback.message.answer_photo(photo=photo, caption=caption, parse_mode="Markdown")
 
+# --- PDF HISOBOT (PDF REPORT) ---
+@dp.message(F.chat.type == "private", F.text.in_([
+    get_text('btn_pdf_report', 'uz'), get_text('btn_pdf_report', 'ru')
+]))
+async def pdf_report_menu(message: types.Message):
+    lang = await get_user_language(message.from_user.id)
+    houses = await get_user_houses(message.from_user.id)
+    if not houses:
+        await message.answer(get_text('no_houses_for_utility', lang))
+        return
+
+    ikb = InlineKeyboardMarkup(inline_keyboard=[])
+    for h in houses:
+        ikb.inline_keyboard.append([
+            InlineKeyboardButton(
+                text=get_text('pdf_house_btn', lang, name=h.name),
+                callback_data=f"pdfrep_house_{h.id}"
+            )
+        ])
+    await message.answer(get_text('pdf_select_house', lang), reply_markup=ikb)
+
+@dp.callback_query(F.data.startswith("pdfrep_house_"))
+async def pdf_select_house(callback: types.CallbackQuery):
+    lang = await get_user_language(callback.from_user.id)
+    house_id = int(callback.data.split("_")[2])
+
+    ikb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=get_text('pdf_elektr_btn', lang), callback_data=f"pdfrep_util_elektr_{house_id}")],
+        [InlineKeyboardButton(text=get_text('pdf_gaz_btn', lang), callback_data=f"pdfrep_util_gaz_{house_id}")]
+    ])
+    await callback.message.edit_text(get_text('pdf_select_utility', lang), reply_markup=ikb)
+
+@dp.callback_query(F.data.startswith("pdfrep_util_"))
+async def pdf_select_utility(callback: types.CallbackQuery):
+    lang = await get_user_language(callback.from_user.id)
+    parts = callback.data.split("_")
+    utility_type = parts[2]
+    house_id = int(parts[3])
+
+    ikb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=get_text('pdf_month_current', lang), callback_data=f"pdfrep_mon_curr_{utility_type}_{house_id}")],
+        [InlineKeyboardButton(text=get_text('pdf_month_previous', lang), callback_data=f"pdfrep_mon_prev_{utility_type}_{house_id}")]
+    ])
+    await callback.message.edit_text(get_text('pdf_select_month', lang), reply_markup=ikb)
+
+@dp.callback_query(F.data.startswith("pdfrep_mon_"))
+async def pdf_generate_report(callback: types.CallbackQuery):
+    lang = await get_user_language(callback.from_user.id)
+    parts = callback.data.split("_")
+    month_choice = parts[2]  # 'curr' or 'prev'
+    utility_type = parts[3]
+    house_id = int(parts[4])
+
+    now = datetime.now()
+    if month_choice == "curr":
+        target_year = now.year
+        target_month = now.month
+    else:
+        # Previous month
+        if now.month == 1:
+            target_year = now.year - 1
+            target_month = 12
+        else:
+            target_year = now.year
+            target_month = now.month - 1
+
+    await callback.message.edit_text(get_text('pdf_generating', lang))
+
+    house = await get_house_by_id(house_id)
+    start_reading, end_reading = await get_monthly_report_data(
+        callback.from_user.id, house_id, utility_type, target_year, target_month
+    )
+
+    if start_reading is None or end_reading is None:
+        await callback.message.edit_text(get_text('pdf_no_data', lang))
+        return
+
+    usage = end_reading - start_reading
+    cost, _ = calculate_tiered_cost(usage, utility_type)
+
+    month_year = f"{target_month:02d}/{target_year}"
+    date_generated = now.strftime("%Y-%m-%d %H:%M")
+
+    pdf_buffer = generate_monthly_pdf(
+        house_name=house.name,
+        utility_type=utility_type,
+        month_year=month_year,
+        start_reading=start_reading,
+        end_reading=end_reading,
+        usage=usage,
+        cost=cost,
+        date_generated=date_generated,
+        lang=lang
+    )
+
+    utility_display = "elektr" if utility_type == "elektr" else "gaz"
+    filename = f"hisobot_{house.name}_{utility_display}_{month_year.replace('/', '_')}.pdf"
+
+    document = BufferedInputFile(pdf_buffer.read(), filename=filename)
+    caption = get_text('pdf_caption', lang, house_name=house.name, utility=utility_type.capitalize(), month_year=month_year)
+    await callback.message.answer_document(document=document, caption=caption, parse_mode="Markdown")
+
+
+async def send_auto_pdf_reports():
+    """Auto-generate and send PDF reports for the previous month to users with readings."""
+    users = await get_all_users()
+    now = datetime.now()
+
+    # Calculate previous month
+    if now.month == 1:
+        prev_year = now.year - 1
+        prev_month = 12
+    else:
+        prev_year = now.year
+        prev_month = now.month - 1
+
+    month_year = f"{prev_month:02d}/{prev_year}"
+    date_generated = now.strftime("%Y-%m-%d %H:%M")
+
+    for user_id in users:
+        is_banned = await check_if_banned(user_id)
+        if is_banned:
+            continue
+        try:
+            lang = await get_user_language(user_id)
+            houses = await get_user_houses(user_id)
+            for house in houses:
+                for utility_type in ["elektr", "gaz"]:
+                    start_reading, end_reading = await get_monthly_report_data(
+                        user_id, house.id, utility_type, prev_year, prev_month
+                    )
+                    if start_reading is None or end_reading is None:
+                        continue
+                    if end_reading <= start_reading:
+                        continue
+
+                    usage = end_reading - start_reading
+                    cost, _ = calculate_tiered_cost(usage, utility_type)
+
+                    pdf_buffer = generate_monthly_pdf(
+                        house_name=house.name,
+                        utility_type=utility_type,
+                        month_year=month_year,
+                        start_reading=start_reading,
+                        end_reading=end_reading,
+                        usage=usage,
+                        cost=cost,
+                        date_generated=date_generated,
+                        lang=lang
+                    )
+
+                    utility_display = "elektr" if utility_type == "elektr" else "gaz"
+                    filename = f"hisobot_{house.name}_{utility_display}_{month_year.replace('/', '_')}.pdf"
+                    document = BufferedInputFile(pdf_buffer.read(), filename=filename)
+                    caption = get_text('pdf_auto_report_caption', lang, house_name=house.name, utility=utility_type.capitalize())
+                    await bot.send_document(
+                        chat_id=user_id,
+                        document=document,
+                        caption=caption,
+                        parse_mode="Markdown"
+                    )
+        except Exception:
+            pass
+
 # --- ADMIN QISMLARI ---
 @dp.message(F.chat.type == "private", Command("admin"), F.from_user.id == ADMIN_ID)
 async def cmd_admin(message: types.Message):
@@ -585,6 +757,7 @@ async def main():
     await init_models()
     scheduler = AsyncIOScheduler(timezone="Asia/Tashkent")
     scheduler.add_job(send_monthly_reminders, trigger='cron', day=1, hour=9, minute=0)
+    scheduler.add_job(send_auto_pdf_reports, trigger='cron', day=1, hour=10, minute=0)
     scheduler.start()
     await dp.start_polling(bot)
 

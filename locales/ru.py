@@ -142,4 +142,31 @@ MESSAGES = {
 
     # Monthly reminder
     "monthly_reminder": "🔔 **Начался новый месяц!**\n\nВведите показания для просмотра отчетов.",
+
+    # PDF Report
+    "btn_pdf_report": "📄 PDF отчет",
+    "pdf_title": "Ежемесячный коммунальный отчет",
+    "pdf_utility_elektr": "Электроэнергия",
+    "pdf_utility_gaz": "Газ",
+    "pdf_col_house": "Название жилья",
+    "pdf_col_utility": "Тип услуги",
+    "pdf_col_month": "Месяц",
+    "pdf_col_start_reading": "Начальное показание",
+    "pdf_col_end_reading": "Конечное показание",
+    "pdf_col_usage": "Объем потребления",
+    "pdf_col_cost": "Сумма оплаты",
+    "pdf_col_date": "Дата",
+    "pdf_footer": "Этот отчет сгенерирован автоматически.",
+    "pdf_select_house": "Для какого адреса вы хотите получить PDF отчет?",
+    "pdf_select_utility": "По какому типу услуги нужен отчет?",
+    "pdf_no_data": "Данные за этот месяц не найдены. Сначала введите показания.",
+    "pdf_generating": "PDF отчет готовится... ⏳",
+    "pdf_caption": "📄 **{house_name}** - {utility} - отчет за {month_year}",
+    "pdf_house_btn": "🏠 {name}",
+    "pdf_elektr_btn": "💡 Электричество",
+    "pdf_gaz_btn": "🔥 Газ",
+    "pdf_month_current": "📅 Текущий месяц",
+    "pdf_month_previous": "📅 Предыдущий месяц",
+    "pdf_select_month": "За какой месяц нужен отчет?",
+    "pdf_auto_report_caption": "📄 Автоматический PDF отчет за прошлый месяц: **{house_name}** - {utility}",
 }
