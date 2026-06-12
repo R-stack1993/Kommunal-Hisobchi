@@ -5,6 +5,9 @@ import io
 from datetime import datetime
 import openpyxl 
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -26,9 +29,8 @@ from database import (
     get_monthly_usage_data, get_user_houses, add_house, delete_house, get_house_by_id, delete_all_readings_for_house
 )
 
-# O'zingizning bot tokeningiz va ID ni kiriting
-BOT_TOKEN = "8818283629:AAEo7_SLk9GbEDBPb9_JBW9st-EGCp0rRYA"
-ADMIN_ID = 8674151713
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+ADMIN_ID = int(os.getenv('ADMIN_ID'))
 
 class BanCheckMiddleware(BaseMiddleware):
     async def __call__(self, handler, event, data):

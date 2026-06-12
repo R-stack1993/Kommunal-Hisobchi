@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-001",
+  "type": "refactor",
+  "description": "Move hardcoded secrets (BOT_TOKEN, ADMIN_ID, DATABASE_URL) to .env file using python-dotenv. Create .env and .env.example files.",
+  "status": "in_progress",
+  "steps": [
+    "Create .env file in project root with: BOT_TOKEN=8818283629:AAEo7_SLk9GbEDBPb9_JBW9st-EGCp0rRYA, ADMIN_ID=8674151713, DATABASE_URL=postgresql+asyncpg://postgres:Pumpimpam19939577@localhost/utilities_db",
+    "Create .env.example file with placeholder values: BOT_TOKEN=your_bot_token_here, ADMIN_ID=your_admin_id_here, DATABASE_URL=postgresql+asyncpg://user:password@localhost/utilities_db",
+    "Modify main.py: add 'from dotenv import load_dotenv' and 'load_dotenv()' at the top (after standard imports). Replace hardcoded BOT_TOKEN with os.getenv('BOT_TOKEN') and ADMIN_ID with int(os.getenv('ADMIN_ID')). The 'import os' is already present.",
+    "Modify database.py: add 'import os' and 'from dotenv import load_dotenv' and 'load_dotenv()' at the top. Replace hardcoded DATABASE_URL with os.getenv('DATABASE_URL').",
+    "Add .env to .gitignore file (create .gitignore if it doesn't exist)"
+  ],
+  "acceptance_criteria": [
+    ".env file exists with actual token values",
+    ".env.example file exists with placeholder values",
+    ".gitignore includes .env",
+    "main.py uses os.getenv('BOT_TOKEN') and int(os.getenv('ADMIN_ID'))",
+    "database.py uses os.getenv('DATABASE_URL')",
+    "Both files import and call load_dotenv()",
+    "All .py files pass Python syntax validation"
+  ],
+  "verification": [
+    "python3 -c \"import ast; ast.parse(open('main.py').read()); ast.parse(open('database.py').read()); print('Syntax OK')\"",
+    "test -f .env && echo '.env exists' || echo 'MISSING .env'",
+    "test -f .env.example && echo '.env.example exists' || echo 'MISSING .env.example'",
+    "grep -q '.env' .gitignore && echo '.gitignore has .env' || echo 'MISSING from .gitignore'",
+    "grep -q 'load_dotenv' main.py && echo 'main.py loads dotenv' || echo 'MISSING load_dotenv in main.py'",
+    "grep -q 'load_dotenv' database.py && echo 'database.py loads dotenv' || echo 'MISSING load_dotenv in database.py'"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
