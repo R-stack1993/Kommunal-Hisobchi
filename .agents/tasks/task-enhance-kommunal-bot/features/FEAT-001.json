@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "refactor",
   "description": "Move hardcoded secrets (BOT_TOKEN, ADMIN_ID, DATABASE_URL) to .env file using python-dotenv. Create .env and .env.example files.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create .env file in project root with: BOT_TOKEN=8818283629:AAEo7_SLk9GbEDBPb9_JBW9st-EGCp0rRYA, ADMIN_ID=8674151713, DATABASE_URL=postgresql+asyncpg://postgres:Pumpimpam19939577@localhost/utilities_db",
     "Create .env.example file with placeholder values: BOT_TOKEN=your_bot_token_here, ADMIN_ID=your_admin_id_here, DATABASE_URL=postgresql+asyncpg://user:password@localhost/utilities_db",
@@ -28,5 +28,5 @@
     "grep -q 'load_dotenv' database.py && echo 'database.py loads dotenv' || echo 'MISSING load_dotenv in database.py'"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": ".env file is correctly git-ignored so it was not staged. The .env file exists on disk with real values for local use. All syntax checks pass."
 }
